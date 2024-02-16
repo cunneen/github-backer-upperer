@@ -1,0 +1,12 @@
+{
+  "name": "github-repository-backup",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/aws-samples/amazon-ecs-cli-sample-app.git",
+  "author": "Mike Cunneen <mike.cunneen@elastik.com>",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.4",
+    "octokit": "^3.1.2"
+  }
+}
