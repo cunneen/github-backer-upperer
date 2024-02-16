@@ -130,3 +130,7 @@ dist
 .pnp.*
 .history/
 .env*
+
+.flaskenv*
+!.env.project
+!.env.vault
