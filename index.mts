@@ -1,68 +1,74 @@
+import { tmpdir } from "node:os";
+import { sep } from "node:path";
+import { mkdtempSync, mkdirSync } from "node:fs";
+import * as path from "node:path";
 import { App } from "octokit";
-import { execa } from "execa";
+
 import "dotenv/config";
+import { cloneGitHubRepoAsMirror } from "./cloneGitHubRepoAsMirror.mjs";
+import { execa } from "execa";
+import * as tar from "tar";
+
+const installationId: number = Number(process.env.GITHUB_APP_INSTALLATION_ID);
+const repoFullName: string = process.env.GITHUB_REPO_TO_BACKUP ?? "";
 
 const ghAppID: string = process.env.GITHUB_APP_ID ?? "";
 const ghPK: string = process.env.GITHUB_APP_PRIVATE_KEY ?? "";
+const s3BucketName: string = process.env.S3_BUCKET_NAME ?? "";
 
 const octokitAppInstance = new App({ appId: ghAppID, privateKey: ghPK });
 
-type CloneRepoParams = {
-  /** The installation ID of the GitHub app, which you can find from the
-   * "configure" button at https://github.com/settings/installations (for a
-   * personal account) or
-   * https://github.com/organizations/[my-organization]/settings/installations
-   * for an organization account */
-  installationId: number;
-  /** The full name of the repository, in the form of owner/repo e.g. `facebook/react` */
-  repoFullName: string;
-  /** The destination folder to clone the repository to */
-  destinationFolder: string;
-  /** An initialized OctoKit app instance (of type "installation") */
-  octokitAppInstance: InstanceType<typeof App>;
-};
+(async () => {
+  // make temp folder
+  const dateString = new Date().toISOString().substring(0, 19);
+  const repoFolderName = repoFullName.replace("/", "-");
+  const tempFolderName = `${repoFolderName}-${dateString}`;
+  const tmpDir = tmpdir();
 
-/**
- * Clones the specified GitHub repo with the --mirror option to the specified output folder.
- * @param params 
- */
-export const cloneGitHubRepoAsMirror = async (params: CloneRepoParams) => {
-  const { installationId, repoFullName, destinationFolder } = params;
-  const octokit = await octokitAppInstance.getInstallationOctokit(installationId);
-  const result: any = await octokit.auth({ type: "installation" });
-  const {
-    type,
-    tokenType,
-    token,
-    repositorySelection,
-  }: // permissions,
-    {
-      type: string;
-      tokenType: string;
-      token: string;
-      repositorySelection: string;
-    } = result;
 
-  const tokenWithPrefix =
-    tokenType === "installation" ? `x-access-token:${token}` : token;
 
-  const repositoryUrl = `https://${tokenWithPrefix}@github.com/${repoFullName}.git`;
+  const tempPath = mkdtempSync(`${tmpDir}${sep}`);
+  const destinationFolder = path.join(tempPath, tempFolderName);
+  await execa("rm", ["-rf", destinationFolder]);
+  mkdirSync(destinationFolder);
+  console.log("cloning repo to:", destinationFolder);
 
-  const { stdout } = await execa("git", [
-    "clone",
-    repositoryUrl,
-    "--mirror",
+  // clone repo
+  await cloneGitHubRepoAsMirror({
+    installationId,
+    repoFullName,
     destinationFolder,
-  ]);
-  console.log(stdout);
-};
+    octokitAppInstance
+  });
+  console.log("tarring")
+  // zip output folder
+  const zipFileName = `${tempFolderName}.tgz`;
+  const zipFilePath = path.join(tempPath, zipFileName);
+  await execa("rm", ["-rf", zipFilePath]);
 
-// test
-// (async () => {
-//   await cloneGitHubRepoAsMirror({
-//     installationId: 47392620,
-//     destinationFolder: "out",
-//     repoFullName: "cunneen/loggingframework-demo",
-//     octokitAppInstance
-//   });
-// })();
+  process.chdir(tempPath);
+  await tar.c(
+    {
+      gzip: true,
+      file: zipFileName,
+      C: tempPath
+    },
+    [tempFolderName]
+  )
+
+  console.log("uploading to S3")
+  // upload zip to S3 (with node AWS credentials)
+  const { stdout: s3out } = await execa("aws", [
+    "s3",
+    "cp",
+    zipFilePath,
+    `s3://${s3BucketName}`
+  ]);
+
+  console.log("s3 output:", s3out);
+
+  await execa("rm", ["-rf", tempPath]);
+  await execa("rm", ["-rf", destinationFolder]);
+  await execa("rm", ["-rf", zipFilePath]);
+  console.log("Done!");
+})();
