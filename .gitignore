@@ -134,3 +134,10 @@ dist
 .flaskenv*
 !.env.project
 !.env.vault
+
+# We don’t want to track compiled JavaScript files in our git repository, so add
+# dist to the .gitignore file. We do, however, want them sent to NPM when we
+# publish, so create an empty .npmignore file. If you don’t have an .npmignore,
+# NPM will automatically exclude gitignored files from being published. Having
+# an npmignore file overwrites this behavior. 
+dist/

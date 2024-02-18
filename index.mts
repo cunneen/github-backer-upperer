@@ -1,63 +1,68 @@
-import { Octokit, App } from "octokit";
-import {execa} from 'execa';
-// import { createTokenAuth } from "@octokit/auth-token";
+import { App } from "octokit";
+import { execa } from "execa";
 import "dotenv/config";
 
 const ghAppID: string = process.env.GITHUB_APP_ID ?? "";
 const ghPK: string = process.env.GITHUB_APP_PRIVATE_KEY ?? "";
 
-const app = new App({ appId: ghAppID, privateKey: ghPK });
-(async () => {
-  // const { data: slug } = await app.octokit.rest.apps.getAuthenticated();
-  // for await (const { octokit, installation } of app.eachInstallation.iterator()) {
-  //     // eachRepository.iterator()) {
-  //     // const {full_name, description, id} = repository;
-  //     // console.log(installation);
-  //     const { id, account } = installation;
+const octokitAppInstance = new App({ appId: ghAppID, privateKey: ghPK });
 
-  //     if (account) {
-  //         app.eachRepository({ installationId: id }, async ({ octokit, repository }) => {
-  //             const { full_name, description, id, git_url } = repository;
-  //             console.log(full_name, description, id, git_url);
-  //             // const { data: { login } } = await octokit.rest.users.getByUsername({ username: account.login });
-  //             // console.log(login);
-  //             return;
-  //         })
-  //     }
-  // }
-  const octokit = await app.getInstallationOctokit(47392620);
+type CloneRepoParams = {
+  /** The installation ID of the GitHub app, which you can find from the
+   * "configure" button at https://github.com/settings/installations (for a
+   * personal account) or
+   * https://github.com/organizations/[my-organization]/settings/installations
+   * for an organization account */
+  installationId: number;
+  /** The full name of the repository, in the form of owner/repo e.g. `facebook/react` */
+  repoFullName: string;
+  /** The destination folder to clone the repository to */
+  destinationFolder: string;
+  /** An initialized OctoKit app instance (of type "installation") */
+  octokitAppInstance: InstanceType<typeof App>;
+};
+
+/**
+ * Clones the specified GitHub repo with the --mirror option to the specified output folder.
+ * @param params 
+ */
+export const cloneGitHubRepoAsMirror = async (params: CloneRepoParams) => {
+  const { installationId, repoFullName, destinationFolder } = params;
+  const octokit = await octokitAppInstance.getInstallationOctokit(installationId);
   const result: any = await octokit.auth({ type: "installation" });
-
   const {
     type,
     tokenType,
     token,
-    installationId,
     repositorySelection,
-    // permissions,
-  }: {
-    type: string;
-    tokenType: string;
-    token: string;
-    installationId: number;
-    repositorySelection: string;
-    // // skipcq: JS-0323
-    // permissions: any;
-  } = result;
-  console.log(
-    type,
-    tokenType,
-    token,
-    installationId,
-    repositorySelection,
-    // permissions
-  );
+  }: // permissions,
+    {
+      type: string;
+      tokenType: string;
+      token: string;
+      repositorySelection: string;
+    } = result;
 
   const tokenWithPrefix =
-  tokenType === "installation" ? `x-access-token:${token}` : token;
+    tokenType === "installation" ? `x-access-token:${token}` : token;
 
-const repositoryUrl = `https://${tokenWithPrefix}@github.com/cunneen/loggingframework-demo.git`;
+  const repositoryUrl = `https://${tokenWithPrefix}@github.com/${repoFullName}.git`;
 
-const { stdout } = await execa("git", ["clone", repositoryUrl, "--mirror"]);
-console.log(stdout);
-})();
+  const { stdout } = await execa("git", [
+    "clone",
+    repositoryUrl,
+    "--mirror",
+    destinationFolder,
+  ]);
+  console.log(stdout);
+};
+
+// test
+// (async () => {
+//   await cloneGitHubRepoAsMirror({
+//     installationId: 47392620,
+//     destinationFolder: "out",
+//     repoFullName: "cunneen/loggingframework-demo",
+//     octokitAppInstance
+//   });
+// })();
