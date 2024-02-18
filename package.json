@@ -2,11 +2,20 @@
   "name": "github-repository-backup",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "repository": "https://github.com/aws-samples/amazon-ecs-cli-sample-app.git",
   "author": "Mike Cunneen <mike.cunneen@elastik.com>",
   "license": "MIT",
   "dependencies": {
     "dotenv": "^16.4.4",
+    "execa": "^8.0.1",
     "octokit": "^3.1.2"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "start": "node --loader ts-node/esm index.mts"
   }
 }
