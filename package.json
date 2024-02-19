@@ -23,6 +23,7 @@
   "scripts": {
     "build": "tsc",
     "prepublish": "tsc",
-    "dev": "node --loader ts-node/esm index.mts"
+    "dev": "node --loader ts-node/esm index.mts",
+    "syncvault": "npx dotenv-vault@latest push"
   }
 }
