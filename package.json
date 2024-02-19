@@ -10,8 +10,10 @@
   "dependencies": {
     "dotenv": "^16.4.4",
     "execa": "^8.0.1",
+    "logform": "^2.6.0",
     "octokit": "^3.1.2",
-    "tar": "^6.2.0"
+    "tar": "^6.2.0",
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/tar": "^6.1.11",
